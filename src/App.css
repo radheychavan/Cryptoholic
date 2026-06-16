@@ -112,3 +112,58 @@ h1 {
   padding: 12px;
   cursor: pointer;
 }
+/* Portfolio Page */
+.portfolio-container {
+  max-width: 1200px;
+  margin: 30px auto;
+  padding: 20px;
+}
+
+.portfolio-title {
+  text-align: center;
+  margin-bottom: 30px;
+  color: white;
+}
+
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.portfolio-table thead {
+  background: #334155;
+}
+
+.portfolio-table th {
+  padding: 16px;
+  text-align: left;
+  color: white;
+  font-size: 16px;
+}
+
+.portfolio-table td {
+  padding: 16px;
+  border-top: 1px solid #475569;
+  color: #e2e8f0;
+}
+
+.portfolio-table tbody tr:hover {
+  background: #2d3748;
+}
+
+.value-cell {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+.back-btn {
+  margin-bottom: 20px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}

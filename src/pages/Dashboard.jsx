@@ -10,6 +10,26 @@ function Dashboard() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
+  const [user, setUser] = useState(null);
+
+  const fetchUser = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:3000/api/user/profile",
+        {
+          headers: {
+            token: localStorage.getItem("token"),
+          },
+        }
+      );
+
+      const data = await response.json();
+      setUser(data);
+    } catch (err) {
+      console.error("User fetch error:", err);
+    }
+  };
+
   const fetchCoins = async () => {
     try {
       setLoading(true);
@@ -36,6 +56,7 @@ function Dashboard() {
 
   useEffect(() => {
     fetchCoins();
+    fetchUser();
   }, []);
 
   useEffect(() => {
@@ -50,6 +71,42 @@ function Dashboard() {
 
   return (
     <div className="container">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+        }}
+      >
+        <div>
+          <h2 style={{ color: "red" }}>
+            Welcome {user?.username || "Loading..."}
+          </h2>
+
+          <h3 style={{ color: "yellow" }}>
+            RC Balance: {user?.rc_balance || "0"}
+          </h3>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={() => (window.location.href = "/portfolio")}
+          >
+            Portfolio
+          </button>
+
+          <button
+            onClick={() => {
+              localStorage.clear();
+              window.location.href = "/login";
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
       <h1>🚀 Crypto Dashboard</h1>
 
       <div className="controls">

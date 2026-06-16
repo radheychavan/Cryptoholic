@@ -1,11 +1,14 @@
 require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const pool = require("./config/db");
-
+const jwt = require("jsonwebtoken");
 const app = express();
+const auth = require("./middleware/auth");
+console.log("AUTH:", auth);
+console.log("TYPE:", typeof auth);
+  console.log(require.resolve("./middleware/auth"));
 
 // Middleware
 app.use(cors());
@@ -85,7 +88,178 @@ app.post("/api/auth/register", async (req, res) => {
     });
   }
 });
+//Auth Middleware
+app.get("/api/user/profile", auth, async (req, res) => {
+  try {
+    const user = await pool.query(
+      "SELECT id, username, email, rc_balance FROM users WHERE id = $1",
+      [req.user]
+    );
 
+    res.json(user.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Server Error",
+    });
+  }
+});
+// Buy Coin
+app.post("/api/trade/buy", auth, async (req, res) => {
+  try {
+    const { coinId, coinName, price, amount } = req.body;
+
+    const user = await pool.query(
+      "SELECT rc_balance FROM users WHERE id = $1",
+      [req.user]
+    );
+
+    if (user.rows[0].rc_balance < amount) {
+      return res.status(400).json({
+        message: "Insufficient RC Balance",
+      });
+    }
+
+    const quantity = amount / price;
+
+    await pool.query(
+      "UPDATE users SET rc_balance = rc_balance - $1 WHERE id = $2",
+      [amount, req.user]
+    );
+
+    await pool.query(
+      `INSERT INTO portfolio(user_id, coin_id, quantity)
+       VALUES($1,$2,$3)`,
+      [req.user, coinId, quantity]
+    );
+
+    await pool.query(
+      `INSERT INTO transactions
+      (user_id, coin_id, transaction_type, quantity, price)
+      VALUES($1,$2,'BUY',$3,$4)`,
+      [req.user, coinId, quantity, price]
+    );
+
+    res.json({
+      success: true,
+      message: "Coin Purchased",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "Server Error",
+    });
+  }
+});
+// Sell Coin
+app.get("/api/portfolio", auth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        coin_id, 
+        SUM(quantity) AS quantity 
+      FROM portfolio 
+      WHERE user_id = $1 
+      GROUP BY coin_id
+      `,
+      [req.user]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json([]);
+    }
+
+    // 1. Create a comma-separated list of IDs: "bitcoin,ethereum,cardano"
+    const coinIds = result.rows.map(row => row.coin_id).join(',');
+
+    // 2. Fetch ALL prices in a single API call
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`
+    );
+
+    if (!response.ok) {
+      throw new Error(`CoinGecko Bulk API responded with status ${response.status}`);
+    }
+
+    const priceData = await response.json(); 
+    // priceData looks like: { bitcoin: { usd: 65000 }, ethereum: { usd: 3500 } }
+
+    // 3. Map your database results cleanly against the bulk price data
+    const portfolio = result.rows.map(coin => {
+      return {
+        coin_id: coin.coin_id,
+        quantity: coin.quantity,
+        // Fallback to 0 if the coin doesn't exist in the API response
+        current_price: priceData[coin.coin_id]?.usd || 0 
+      };
+    });
+
+    res.json(portfolio);
+
+  } catch (error) {
+    console.error("PORTFOLIO ERROR:", error);
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+//Login User
+console.log("LOGIN ROUTE REGISTERED");
+app.post("/api/auth/login", async (req, res) => {
+  console.log("LOGIN ROUTE HIT");
+  console.log(req.body);
+
+  try {
+    // existing code
+    const { email, password } = req.body;
+
+    const user = await pool.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (user.rows.length === 0) {
+      return res.status(400).json({
+        message: "Invalid Credentials",
+      });
+    }
+
+    const validPassword = await bcrypt.compare(
+      password,
+      user.rows[0].password
+    );
+
+    if (!validPassword) {
+      return res.status(400).json({
+        message: "Invalid Credentials",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.rows[0].id,
+      },
+      "secretkey",
+      {
+        expiresIn: "1d",
+      }
+    );
+
+    res.json({
+      success: true,
+      token,
+      username: user.rows[0].username,
+      rc_balance: user.rows[0].rc_balance,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Server Error",
+    });
+  }
+});
 // Start Server
 const PORT = process.env.PORT || 3000;
 
