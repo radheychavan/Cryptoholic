@@ -90,20 +90,22 @@ function Dashboard() {
         </div>
 
         <div style={{ display: "flex", gap: "10px" }}>
-          <button
-            onClick={() => (window.location.href = "/portfolio")}
-          >
-            Portfolio
-          </button>
+         <button
+  className="portfolio-btn"
+  onClick={() => (window.location.href = "/portfolio")}
+>
+  Portfolio
+</button>
 
           <button
-            onClick={() => {
-              localStorage.clear();
-              window.location.href = "/login";
-            }}
-          >
-            Logout
-          </button>
+  className="logout-btn"
+  onClick={() => {
+    localStorage.clear();
+    window.location.href = "/login";
+  }}
+>
+  Logout
+</button>
         </div>
       </div>
 

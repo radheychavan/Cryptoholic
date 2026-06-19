@@ -34,16 +34,57 @@ setPortfolio(data);
   if (loading) {
     return <h2>Loading Portfolio...</h2>;
   }
+const sellCoin = async (coin) => {
+  const quantity = prompt(
+    `How much ${coin.coin_id} do you want to sell?`
+  );
+
+  if (!quantity) return;
+
+  try {
+    const response = await fetch(
+      "http://localhost:3000/api/trade/sell",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          token: localStorage.getItem("token"),
+        },
+        body: JSON.stringify({
+          coinId: coin.coin_id,
+          quantity: Number(quantity),
+          currentPrice: coin.current_price,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message);
+    }
+
+    alert(
+      `Sold successfully. Received ${data.received.toFixed(
+        2
+      )} RC`
+    );
+
+    window.location.reload();
+  } catch (error) {
+    alert(error.message);
+  }
+};
 
   return (
+    
   <div className="portfolio-container">
     <button
-      className="back-btn"
-      onClick={() => (window.location.href = "/dashboard")}
-    >
-      ← Back to Dashboard
-    </button>
-
+  className="back-btn"
+  onClick={() => (window.location.href = "/dashboard")}
+>
+  ← Back to Dashboard
+</button>
     <h1 className="portfolio-title">📊 My Portfolio</h1>
 
     {portfolio.length === 0 ? (
@@ -56,6 +97,7 @@ setPortfolio(data);
             <th>Quantity</th>
             <th>Current Price</th>
             <th>Total Value</th>
+            <th>Action</th>
           </tr>
         </thead>
 
@@ -82,7 +124,16 @@ setPortfolio(data);
                   Number(coin.current_price)
                 ).toFixed(2)}
               </td>
+              <td>
+<button
+  className="sell-btn"
+  onClick={() => sellCoin(coin)}
+>
+  Sell
+</button>
+</td>
             </tr>
+            
           ))}
         </tbody>
       </table>
@@ -90,4 +141,5 @@ setPortfolio(data);
   </div>
 );
 }
+
 export default Portfolio;

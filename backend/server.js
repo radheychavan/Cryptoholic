@@ -151,7 +151,7 @@ app.post("/api/trade/buy", auth, async (req, res) => {
     });
   }
 });
-// Sell Coin
+// portfolio route
 app.get("/api/portfolio", auth, async (req, res) => {
   try {
     const result = await pool.query(
@@ -201,6 +201,77 @@ app.get("/api/portfolio", auth, async (req, res) => {
     console.error("PORTFOLIO ERROR:", error);
     res.status(500).json({
       message: error.message,
+    });
+  }
+});
+//sell coin route
+app.post("/api/trade/sell", auth, async (req, res) => {
+  try {
+    const { coinId, quantity, currentPrice } = req.body;
+
+    const holding = await pool.query(
+      `SELECT * FROM portfolio
+       WHERE user_id = $1 AND coin_id = $2`,
+      [req.user, coinId]
+    );
+
+    if (holding.rows.length === 0) {
+      return res.status(400).json({
+        message: "You don't own this coin",
+      });
+    }
+
+    const ownedQuantity = Number(holding.rows[0].quantity);
+
+    if (quantity > ownedQuantity) {
+      return res.status(400).json({
+        message: "Insufficient coin balance",
+      });
+    }
+
+    const sellValue = quantity * currentPrice;
+
+    const remaining = ownedQuantity - quantity;
+
+    if (remaining <= 0) {
+      await pool.query(
+        `DELETE FROM portfolio
+         WHERE user_id = $1 AND coin_id = $2`,
+        [req.user, coinId]
+      );
+    } else {
+      await pool.query(
+        `UPDATE portfolio
+         SET quantity = $1
+         WHERE user_id = $2 AND coin_id = $3`,
+        [remaining, req.user, coinId]
+      );
+    }
+
+    await pool.query(
+      `UPDATE users
+       SET rc_balance = rc_balance + $1
+       WHERE id = $2`,
+      [sellValue, req.user]
+    );
+
+    await pool.query(
+      `INSERT INTO transactions
+      (user_id, coin_id, transaction_type, quantity, price)
+      VALUES($1,$2,'SELL',$3,$4)`,
+      [req.user, coinId, quantity, currentPrice]
+    );
+
+    res.json({
+      success: true,
+      message: "Coin sold successfully",
+      received: sellValue,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Server Error",
     });
   }
 });

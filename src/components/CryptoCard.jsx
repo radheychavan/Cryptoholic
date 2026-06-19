@@ -54,7 +54,10 @@ function CryptoCard({ coin }) {
     ? "N/A"
     : `${coin.price_change_percentage_24h.toFixed(2)}%`}
 </p>
-<button onClick={() => buyCoin(coin)}>
+<button
+  className="buy-btn"
+  onClick={() => buyCoin(coin)}
+>
   Buy
 </button>
 
