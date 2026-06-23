@@ -152,55 +152,106 @@ app.post("/api/trade/buy", auth, async (req, res) => {
   }
 });
 // portfolio route
+// Portfolio Route with Profit / Loss
 app.get("/api/portfolio", auth, async (req, res) => {
   try {
-    const result = await pool.query(
+    // Get all coins currently owned by this user
+    const holdingsResult = await pool.query(
       `
-      SELECT 
-        coin_id, 
-        SUM(quantity) AS quantity 
-      FROM portfolio 
-      WHERE user_id = $1 
+      SELECT
+        coin_id,
+        SUM(quantity) AS quantity
+      FROM portfolio
+      WHERE user_id = $1
       GROUP BY coin_id
       `,
       [req.user]
     );
 
-    if (result.rows.length === 0) {
-      return res.json([]);
+    if (holdingsResult.rows.length === 0) {
+      return res.json({
+        success: true,
+        portfolio: [],
+      });
     }
 
-    // 1. Create a comma-separated list of IDs: "bitcoin,ethereum,cardano"
-    const coinIds = result.rows.map(row => row.coin_id).join(',');
+    // Example: bitcoin,ethereum,solana
+    const coinIds = holdingsResult.rows
+      .map((row) => row.coin_id)
+      .join(",");
 
-    // 2. Fetch ALL prices in a single API call
-    const response = await fetch(
+    // Get all live prices in one CoinGecko request
+    const priceResponse = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`
     );
 
-    if (!response.ok) {
-      throw new Error(`CoinGecko Bulk API responded with status ${response.status}`);
+    if (!priceResponse.ok) {
+      throw new Error("Failed to fetch live crypto prices");
     }
 
-    const priceData = await response.json(); 
-    // priceData looks like: { bitcoin: { usd: 65000 }, ethereum: { usd: 3500 } }
+    const priceData = await priceResponse.json();
 
-    // 3. Map your database results cleanly against the bulk price data
-    const portfolio = result.rows.map(coin => {
-      return {
-        coin_id: coin.coin_id,
-        quantity: coin.quantity,
-        // Fallback to 0 if the coin doesn't exist in the API response
-        current_price: priceData[coin.coin_id]?.usd || 0 
-      };
+    const portfolio = [];
+
+    for (const holding of holdingsResult.rows) {
+      const coinId = holding.coin_id;
+      const quantity = Number(holding.quantity);
+
+      /*
+        Total money spent on BUY transactions for this coin.
+
+        Note:
+        This is basic unrealized P/L.
+        If the user partially sells a coin, this invested amount still includes
+        all past buys. We will improve that later using average-cost logic.
+      */
+      const investmentResult = await pool.query(
+        `
+        SELECT COALESCE(SUM(quantity * price), 0) AS invested_amount
+        FROM transactions
+        WHERE user_id = $1
+          AND coin_id = $2
+          AND transaction_type = 'BUY'
+        `,
+        [req.user, coinId]
+      );
+
+      const investedAmount = Number(
+        investmentResult.rows[0].invested_amount
+      );
+
+      const currentPrice = Number(priceData[coinId]?.usd || 0);
+
+      const currentValue = quantity * currentPrice;
+
+      const profitLoss = currentValue - investedAmount;
+
+      const profitLossPercentage =
+        investedAmount > 0
+          ? (profitLoss / investedAmount) * 100
+          : 0;
+
+      portfolio.push({
+        coin_id: coinId,
+        quantity,
+        invested_amount: investedAmount,
+        current_price: currentPrice,
+        current_value: currentValue,
+        profit_loss: profitLoss,
+        profit_loss_percentage: profitLossPercentage,
+      });
+    }
+
+    res.json({
+      success: true,
+      portfolio,
     });
-
-    res.json(portfolio);
-
   } catch (error) {
     console.error("PORTFOLIO ERROR:", error);
+
     res.status(500).json({
-      message: error.message,
+      success: false,
+      message: error.message || "Failed to load portfolio",
     });
   }
 });

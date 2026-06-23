@@ -337,3 +337,46 @@ box-shadow: 0 4px 10px rgba(0, 200, 83, 0.3);
   font-size: 20px;
   margin-top: 40px;
 }
+.portfolio-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 25px;
+}
+
+.summary-card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+  text-align: center;
+}
+
+.summary-card p {
+  margin: 0 0 8px;
+  color: #cbd5e1;
+}
+
+.summary-card h2 {
+  margin: 0;
+}
+
+.summary-card span {
+  display: block;
+  margin-top: 8px;
+  font-weight: bold;
+}
+
+.profit-card {
+  border: 1px solid #22c55e;
+}
+
+.loss-card {
+  border: 1px solid #ef4444;
+}
+
+@media (max-width: 768px) {
+  .portfolio-summary {
+    grid-template-columns: 1fr;
+  }
+}
