@@ -96,6 +96,9 @@ function Dashboard() {
 >
   Portfolio
 </button>
+<button onClick={() => (window.location.href = "/history")}>
+  Transaction History
+</button>
 
           <button
   className="logout-btn"

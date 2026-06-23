@@ -331,6 +331,36 @@ app.post("/api/auth/login", async (req, res) => {
     });
   }
 });
+// Transaction History Route
+app.get("/api/transactions", auth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        coin_id,
+        transaction_type,
+        quantity,
+        price,
+        created_at
+      FROM transactions
+      WHERE user_id = $1
+      ORDER BY created_at DESC`,
+      [req.user]
+    );
+
+    res.json({
+      success: true,
+      transactions: result.rows,
+    });
+  } catch (error) {
+    console.error("Transaction history error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch transaction history",
+    });
+  }
+});
 // Start Server
 const PORT = process.env.PORT || 3000;
 
