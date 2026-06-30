@@ -46,16 +46,47 @@ app.post("/api/auth/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    if (!username || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
-    }
+   const cleanUsername = username?.trim();
+const cleanEmail = email?.trim().toLowerCase();
+
+if (!cleanUsername || !cleanEmail || !password) {
+  return res.status(400).json({
+    success: false,
+    message: "All fields are required",
+  });
+}
+
+if (cleanUsername.length < 3) {
+  return res.status(400).json({
+    success: false,
+    message: "Username must be at least 3 characters",
+  });
+}
+
+if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+  return res.status(400).json({
+    success: false,
+    message: "Username can only contain letters, numbers, and underscore",
+  });
+}
+
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+  return res.status(400).json({
+    success: false,
+    message: "Enter a valid email address",
+  });
+}
+
+if (password.length < 6) {
+  return res.status(400).json({
+    success: false,
+    message: "Password must be at least 6 characters",
+  });
+}
 
     const existingUser = await pool.query(
       "SELECT * FROM users WHERE email = $1",
-      [email]
+      [cleanEmail]
     );
 
     if (existingUser.rows.length > 0) {
@@ -71,7 +102,7 @@ app.post("/api/auth/register", async (req, res) => {
       `INSERT INTO users(username, email, password)
        VALUES($1, $2, $3)
        RETURNING id, username, email, rc_balance`,
-      [username, email, hashedPassword]
+    [cleanUsername, cleanEmail, hashedPassword]
     );
 
     res.status(201).json({
@@ -335,10 +366,22 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     // existing code
     const { email, password } = req.body;
+  const cleanEmail = email?.trim().toLowerCase();
 
+if (!cleanEmail || !password) {
+  return res.status(400).json({
+    message: "Email and password are required",
+  });
+}
+
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+  return res.status(400).json({
+    message: "Enter a valid email address",
+  });
+}
     const user = await pool.query(
       "SELECT * FROM users WHERE email = $1",
-      [email]
+      [cleanEmail]
     );
 
     if (user.rows.length === 0) {
